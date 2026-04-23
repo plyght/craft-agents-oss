@@ -569,11 +569,23 @@ export function useOnboarding({
       }
 
       // Cursor OAuth (PKCE flow — opens browser, background polls /auth/poll)
+      //
+      // Unlike the other OAuth methods, the Cursor flow is driven end-to-end
+      // by the CursorManager in the Electron main process: it completes
+      // PKCE, persists credentials, starts the local proxy, discovers models,
+      // and upserts the `cursor` LlmConnection via addLlmConnection() on
+      // success. So by the time `getCursorAuthStatus()` returns
+      // authenticated=true, the connection already exists, its models are
+      // populated, and there's nothing left for the renderer to save.
+      //
+      // If we called saveAndValidateConnection() here like the other OAuth
+      // flows, it would route through setupLlmConnection → validateModelList
+      // with an empty `models` array from the (unused) renderer form state
+      // and fail with "Default model is required for compatible endpoints."
+      // That's exactly the red error users were hitting — the login was
+      // actually working behind the scenes, it was the redundant save that
+      // failed and prevented the UI from advancing.
       if (effectiveMethod === 'pi_cursor_oauth') {
-        const effectiveEditingSlug = connectionSlugOverride ?? editingSlug
-        const isReauth = !!effectiveEditingSlug
-        const connectionSlug = apiSetupMethodToConnectionSetup(effectiveMethod, {}, effectiveEditingSlug, existingSlugs).slug
-
         try {
           await window.electronAPI.startCursorOAuth()
 
@@ -587,7 +599,16 @@ export function useOnboarding({
             await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
             const status = await window.electronAPI.getCursorAuthStatus()
             if (status?.authenticated) {
-              await saveAndValidateConnection(connectionSlug, effectiveMethod, undefined, isReauth)
+              // The main process already upserted the connection; just
+              // notify the app shell so the connection list refreshes and
+              // advance the wizard to the completion step.
+              onConfigSaved?.()
+              setState((s) => ({
+                ...s,
+                credentialStatus: 'success',
+                completionStatus: 'complete',
+                step: 'complete',
+              }))
               return
             }
           }
@@ -668,7 +689,7 @@ export function useOnboarding({
         errorMessage: error instanceof Error ? error.message : 'OAuth failed',
       }))
     }
-  }, [state.apiSetupMethod, saveAndValidateConnection, editingSlug, existingSlugs])
+  }, [state.apiSetupMethod, saveAndValidateConnection, editingSlug, existingSlugs, onConfigSaved])
 
   // Map ProviderChoice → ApiSetupMethod and navigate to the right step
   const handleSelectProvider = useCallback((choice: ProviderChoice) => {
