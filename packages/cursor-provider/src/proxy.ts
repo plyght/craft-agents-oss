@@ -13,6 +13,21 @@ import { appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve as pathResolve, dirname, join as pathJoin } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// Resolve the directory of this module across esm (import.meta.url) and cjs
+// (__dirname). The Electron main process bundles this file into a single
+// .cjs via esbuild, where import.meta.url is empty, so we need the fallback.
+declare const __dirname: string | undefined;
+function moduleDir(): string {
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.url) {
+      return dirname(fileURLToPath(import.meta.url));
+    }
+  } catch {}
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (typeof __dirname !== "undefined") return __dirname;
+  return process.cwd();
+}
 import {
   AgentClientMessageSchema,
   AgentRunRequestSchema,
@@ -82,7 +97,7 @@ const CONNECT_END_STREAM_FLAG = 0b00000010;
 //      so the packaged app can point at resources/h2-bridge.mjs).
 //   2. h2-bridge.mjs alongside this module (dev / direct bun run).
 const BRIDGE_PATH = process.env.CRAFT_CURSOR_BRIDGE_PATH?.trim()
-  || pathResolve(dirname(fileURLToPath(import.meta.url)), "h2-bridge.mjs");
+  || pathResolve(moduleDir(), "h2-bridge.mjs");
 
 // ── Types ──
 
