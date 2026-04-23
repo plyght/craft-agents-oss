@@ -522,6 +522,7 @@
   "onboarding.apiSetup.claude": "Claude",
   "onboarding.apiSetup.claudeDesc": "Claude Agent SDKをメインエージェントとして使用します。ClaudeサブスクリプションまたはAPIキーで設定してください。",
   "onboarding.apiSetup.craftAgentsBackend": "Craft Agents Backend",
+  "onboarding.apiSetup.cursorDesc": "CursorのAPIを通じて、CursorサブスクリプションでClaude、GPT、Gemini、Composerモデルを利用します。",
   "onboarding.apiSetup.description": "AIエージェントの動力源を選択してください。接続は後で追加できます。",
   "onboarding.apiSetup.githubCopilotDesc": "GitHub CopilotサブスクリプションをCraft Agents Backendで使用します。",
   "onboarding.apiSetup.piDesc": "Craft Agents Backendをメインエージェントとして使用します。ChatGPT、GitHub Copilot、またはAPIキーで接続してください。",

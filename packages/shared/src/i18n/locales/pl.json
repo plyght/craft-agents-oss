@@ -522,6 +522,7 @@
   "onboarding.apiSetup.claude": "Claude",
   "onboarding.apiSetup.claudeDesc": "Użyj Claude Agent SDK jako głównego agenta. Skonfiguruj za pomocą subskrypcji Claude lub klucza API.",
   "onboarding.apiSetup.craftAgentsBackend": "Craft Agents Backend",
+  "onboarding.apiSetup.cursorDesc": "Używaj subskrypcji Cursor, aby uzyskać dostęp do modeli Claude, GPT, Gemini i Composer przez API Cursor.",
   "onboarding.apiSetup.description": "Wybierz, jak chcesz zasilać swoich agentów AI. Możesz dodać więcej połączeń później.",
   "onboarding.apiSetup.githubCopilotDesc": "Używaj swojej subskrypcji GitHub Copilot z Craft Agents Backend.",
   "onboarding.apiSetup.piDesc": "Użyj Craft Agents Backend jako głównego agenta. Połącz przez ChatGPT, GitHub Copilot lub klucz API.",

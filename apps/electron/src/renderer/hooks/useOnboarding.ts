@@ -96,6 +96,7 @@ export const BASE_SLUG_FOR_METHOD: Record<ApiSetupMethod, string> = {
   claude_oauth: 'claude-max',
   pi_chatgpt_oauth: 'chatgpt-plus',
   pi_copilot_oauth: 'github-copilot',
+  pi_cursor_oauth: 'cursor',
   pi_api_key: 'pi-api-key',
 }
 
@@ -170,6 +171,7 @@ export function apiSetupMethodToConnectionSetup(
       }
     case 'pi_chatgpt_oauth':
     case 'pi_copilot_oauth':
+    case 'pi_cursor_oauth':
       return {
         slug,
         credential: options.credential,
@@ -561,6 +563,45 @@ export function useOnboarding({
             ...s,
             credentialStatus: 'error',
             errorMessage: result.error || 'ChatGPT authentication failed',
+          }))
+        }
+        return
+      }
+
+      // Cursor OAuth (PKCE flow — opens browser, background polls /auth/poll)
+      if (effectiveMethod === 'pi_cursor_oauth') {
+        const effectiveEditingSlug = connectionSlugOverride ?? editingSlug
+        const isReauth = !!effectiveEditingSlug
+        const connectionSlug = apiSetupMethodToConnectionSetup(effectiveMethod, {}, effectiveEditingSlug, existingSlugs).slug
+
+        try {
+          await window.electronAPI.startCursorOAuth()
+
+          // Poll for auth completion (max ~2 minutes of UI patience).
+          // The manager keeps polling Cursor in the background for up to
+          // ~25 minutes; the status check is just for the onboarding UX.
+          const started = Date.now()
+          const POLL_INTERVAL_MS = 1500
+          const POLL_TIMEOUT_MS = 120_000
+          while (Date.now() - started < POLL_TIMEOUT_MS) {
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+            const status = await window.electronAPI.getCursorAuthStatus()
+            if (status?.authenticated) {
+              await saveAndValidateConnection(connectionSlug, effectiveMethod, undefined, isReauth)
+              return
+            }
+          }
+
+          setState((s) => ({
+            ...s,
+            credentialStatus: 'error',
+            errorMessage: 'Cursor login timed out. Please try again.',
+          }))
+        } catch (err) {
+          setState((s) => ({
+            ...s,
+            credentialStatus: 'error',
+            errorMessage: err instanceof Error ? err.message : 'Cursor authentication failed',
           }))
         }
         return

@@ -522,6 +522,7 @@
   "onboarding.apiSetup.claude": "Claude",
   "onboarding.apiSetup.claudeDesc": "A Claude Agent SDK használata fő ügynökként. Konfigurálható Claude-előfizetéssel vagy API-kulccsal.",
   "onboarding.apiSetup.craftAgentsBackend": "Craft Agents Backend",
+  "onboarding.apiSetup.cursorDesc": "Használd Cursor-előfizetésedet a Claude, GPT, Gemini és Composer modellek eléréséhez a Cursor API-n keresztül.",
   "onboarding.apiSetup.description": "Válaszd ki, hogyan szeretnéd működtetni AI ügynökeidet. További kapcsolatokat később is hozzáadhatsz.",
   "onboarding.apiSetup.githubCopilotDesc": "Használd GitHub Copilot-előfizetésedet a Craft Agents Backenden keresztül.",
   "onboarding.apiSetup.piDesc": "A Craft Agents Backend használata fő ügynökként. Csatlakozz ChatGPT-n, GitHub Copiloton vagy API-kulcson keresztül.",

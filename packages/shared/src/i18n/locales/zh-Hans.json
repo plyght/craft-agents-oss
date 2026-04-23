@@ -522,6 +522,7 @@
   "onboarding.apiSetup.claude": "Claude",
   "onboarding.apiSetup.claudeDesc": "使用 Claude Agent SDK 作为主智能体。通过 Claude 订阅或 API 密钥配置。",
   "onboarding.apiSetup.craftAgentsBackend": "Craft Agents Backend",
+  "onboarding.apiSetup.cursorDesc": "通过 Cursor 的 API，使用你的 Cursor 订阅访问 Claude、GPT、Gemini 和 Composer 模型。",
   "onboarding.apiSetup.description": "选择 AI 智能体的驱动方式。稍后可以添加更多连接。",
   "onboarding.apiSetup.githubCopilotDesc": "通过 Craft Agents Backend 使用 GitHub Copilot 订阅。",
   "onboarding.apiSetup.piDesc": "使用 Craft Agents Backend 作为主智能体。通过 ChatGPT、GitHub Copilot 或 API 密钥连接。",
