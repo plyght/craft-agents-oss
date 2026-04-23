@@ -577,6 +577,8 @@
   "onboarding.providerSelect.claudeProMaxDesc": "Claudeのサブスクリプションを使用して無制限にアクセスします。",
   "onboarding.providerSelect.codexChatGPT": "Codex · ChatGPT Plus",
   "onboarding.providerSelect.codexChatGPTDesc": "ChatGPTのサブスクリプションを使用してCraft Agentsを利用します。",
+  "onboarding.providerSelect.cursor": "Cursor",
+  "onboarding.providerSelect.cursorDesc": "CursorのAPIを通じて、CursorサブスクリプションでClaude、GPT、Gemini、Composerを利用します。",
   "onboarding.providerSelect.description": "接続方法を選択してください。",
   "onboarding.providerSelect.githubCopilot": "GitHub Copilot",
   "onboarding.providerSelect.githubCopilotDesc": "GitHub Copilotのサブスクリプションを使用してCraft Agentsを利用します。",

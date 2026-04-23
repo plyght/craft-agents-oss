@@ -577,6 +577,8 @@
   "onboarding.providerSelect.claudeProMaxDesc": "使用 Claude 订阅获得无限访问。",
   "onboarding.providerSelect.codexChatGPT": "Codex · ChatGPT Plus",
   "onboarding.providerSelect.codexChatGPTDesc": "使用 ChatGPT 订阅驱动 Craft Agents。",
+  "onboarding.providerSelect.cursor": "Cursor",
+  "onboarding.providerSelect.cursorDesc": "通过 Cursor 的 API，使用你的 Cursor 订阅访问 Claude、GPT、Gemini 和 Composer。",
   "onboarding.providerSelect.description": "选择连接方式",
   "onboarding.providerSelect.githubCopilot": "GitHub Copilot",
   "onboarding.providerSelect.githubCopilotDesc": "使用 GitHub Copilot 订阅驱动 Craft Agents。",

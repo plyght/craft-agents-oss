@@ -577,6 +577,8 @@
   "onboarding.providerSelect.claudeProMaxDesc": "Használd a Claude előfizetésedet korlátlan hozzáféréshez.",
   "onboarding.providerSelect.codexChatGPT": "Codex · ChatGPT Plus",
   "onboarding.providerSelect.codexChatGPTDesc": "Használd a ChatGPT előfizetésedet a Craft Agents működtetéséhez.",
+  "onboarding.providerSelect.cursor": "Cursor",
+  "onboarding.providerSelect.cursorDesc": "Használd Cursor-előfizetésedet a Claude, GPT, Gemini és Composer eléréséhez a Cursor API-n keresztül.",
   "onboarding.providerSelect.description": "Hogyan szeretnél csatlakozni?",
   "onboarding.providerSelect.githubCopilot": "GitHub Copilot",
   "onboarding.providerSelect.githubCopilotDesc": "Használd a GitHub Copilot előfizetésedet a Craft Agents működtetéséhez.",

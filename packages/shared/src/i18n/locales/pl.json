@@ -577,6 +577,8 @@
   "onboarding.providerSelect.claudeProMaxDesc": "Używaj swojej subskrypcji Claude dla nieograniczonego dostępu.",
   "onboarding.providerSelect.codexChatGPT": "Codex · ChatGPT Plus",
   "onboarding.providerSelect.codexChatGPTDesc": "Używaj swojej subskrypcji ChatGPT do obsługi Craft Agents.",
+  "onboarding.providerSelect.cursor": "Cursor",
+  "onboarding.providerSelect.cursorDesc": "Używaj subskrypcji Cursor, aby uzyskać dostęp do Claude, GPT, Gemini i Composer przez API Cursor.",
   "onboarding.providerSelect.description": "Jak chcesz się połączyć?",
   "onboarding.providerSelect.githubCopilot": "GitHub Copilot",
   "onboarding.providerSelect.githubCopilotDesc": "Używaj swojej subskrypcji GitHub Copilot do obsługi Craft Agents.",
