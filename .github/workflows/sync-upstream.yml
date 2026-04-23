@@ -132,47 +132,83 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create / update a branch that rebases our divergent commits
-          # on top of upstream/main. Conflicts don't auto-resolve — if
-          # rebase fails, we abort it and fall back to a merge commit so
-          # the PR still opens and you can resolve in-browser.
+          # Early-out when the "divergence" is cosmetic. `git merge-base`
+          # classifies main and upstream/main as diverged whenever their
+          # SHAs don't match AND neither is an ancestor of the other. But
+          # often upstream/main IS an ancestor of our main — we've already
+          # picked up every upstream commit, plus we have extra commits of
+          # our own on top. In that case there's literally nothing to
+          # merge; opening a PR just adds noise and a failing "create PR"
+          # call when the repo setting blocks it. Detect and exit clean.
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "upstream/main is already an ancestor of origin/main — nothing to sync."
+            echo "(This happens when your main has commits on top of the latest upstream main.)"
+            exit 0
+          fi
+
+          # Create / update a branch rooted at origin/main and merge
+          # upstream/main into it. Conflicts get committed as-is so the
+          # PR surfaces conflict markers instead of failing the workflow;
+          # GitHub won't let the PR merge until they're resolved anyway.
           BRANCH="chore/upstream-sync"
           git checkout -B "$BRANCH" origin/main
 
-          # Try a merge (not a rebase) first — keeps the divergent work
-          # visible in the PR diff instead of rewriting history, and
-          # makes conflict resolution more natural in the GitHub UI.
           if git merge --no-ff --no-edit upstream/main; then
             echo "Merge clean — pushing branch."
           else
             echo "Merge had conflicts — committing the in-progress merge so the PR surfaces them."
-            # Leave conflict markers in the tree so the PR clearly shows
-            # what needs resolving. GitHub won't let the PR merge until
-            # the conflicts are resolved anyway.
             git add -A
             git commit --no-edit || true
           fi
 
+          # Second sanity check: did the merge actually introduce new
+          # commits from upstream on top of origin/main? If git decided
+          # the merge was a fast-forward no-op (shouldn't happen after
+          # the --is-ancestor guard above, but belt-and-braces), skip
+          # the PR.
+          NEW_COMMITS=$(git rev-list --count origin/main..HEAD)
+          if [ "$NEW_COMMITS" = "0" ]; then
+            echo "Merge produced no new commits relative to origin/main — skipping PR."
+            exit 0
+          fi
+
           git push -f origin "$BRANCH"
 
-          # Open or update the PR. --fill pulls title/body from the most
-          # recent commit on the branch; we override with a predictable
-          # title so re-runs update instead of creating duplicates.
           TITLE="chore: sync with upstream lukilabs/craft-agents-oss"
           BODY=$(printf "%s\n" \
             "Automated sync of upstream \`lukilabs/craft-agents-oss\` \`main\` into this fork's \`main\`." \
             "" \
             "- Upstream SHA: \`${{ steps.state.outputs.upstream_sha }}\`" \
             "- Local SHA:    \`${{ steps.state.outputs.local_sha }}\`" \
+            "- New commits on this branch: \`$NEW_COMMITS\`" \
             "" \
             "If there are conflicts, resolve them in this PR, then merge. If not, merging brings upstream's changes into \`main\` without disturbing open PR branches." \
             "" \
             "Triggered by: \`${{ github.event_name }}\`")
 
+          # Attempt to open or update the PR. If the GITHUB_TOKEN lacks
+          # pull-request create permission (repo Settings → Actions →
+          # General → Workflow permissions → \"Allow GitHub Actions to
+          # create and approve pull requests\" unchecked), gh returns
+          # "Resource not accessible by integration". Don't fail the
+          # whole workflow for that — the branch is already pushed, and
+          # the user can click "Compare & pull request" on GitHub's
+          # banner to open it manually. Emit a clear actionable
+          # annotation instead of a red X.
           EXISTING=$(gh pr list --state open --head "$BRANCH" --json number --jq '.[0].number' || true)
           if [ -n "$EXISTING" ]; then
-            gh pr edit "$EXISTING" --title "$TITLE" --body "$BODY"
-            echo "Updated existing PR #$EXISTING"
+            if gh pr edit "$EXISTING" --title "$TITLE" --body "$BODY"; then
+              echo "Updated existing PR #$EXISTING"
+            else
+              echo "::warning::Could not edit existing PR #$EXISTING via GITHUB_TOKEN."
+              echo "::warning::Check repo Settings → Actions → General → Workflow permissions."
+            fi
           else
-            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY"
+            if gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY"; then
+              echo "Opened new sync PR."
+            else
+              echo "::warning::Could not open PR via GITHUB_TOKEN — branch '$BRANCH' is pushed, open the PR manually."
+              echo "::warning::To fix permanently: Settings → Actions → General → Workflow permissions → enable \"Allow GitHub Actions to create and approve pull requests\"."
+              echo "::warning::Manual PR URL: https://github.com/${{ github.repository }}/compare/main...${BRANCH}?expand=1"
+            fi
           fi
