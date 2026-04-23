@@ -620,6 +620,13 @@ function AppShellContent({
 
   const sessionFilter = sessionsContext?.filter ?? null
 
+  // Hide the navigator (session list) panel whenever the user is in a
+  // chat/agent (sessions) view. Recent sessions are exposed in the main left
+  // sidebar instead, so the navigator is redundant for this context. Other
+  // contexts (sources, skills, automations, settings) still show the navigator
+  // per the user's Cmd+. / toggle preferences.
+  const hideNavigatorForSessions = isSessionsNavigation(navState) && !isAutoCompact
+
   // Derive source filter from navigation state (only when in sources navigator)
   const sourceFilter: SourceFilter | null = isSourcesNavigation(navState) ? navState.filter ?? null : null
 
@@ -796,7 +803,7 @@ function AppShellContent({
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(() => {
     const saved = storage.get<string[] | null>(storage.KEYS.collapsedSidebarItems, null)
     if (saved !== null) return new Set(saved)
-    return new Set(['nav:labels'])
+    return new Set(['nav:labels', 'nav:recentSessions'])
   })
   const isExpanded = React.useCallback((id: string) => !collapsedItems.has(id), [collapsedItems])
   const toggleExpanded = React.useCallback((id: string) => {
@@ -2342,6 +2349,44 @@ function AppShellContent({
                       },
                       items: buildLabelSidebarItems(labelTree),
                     },
+                    // Recent Sessions: expandable list of the most recent chats.
+                    // Clicking a session opens it in the focused content panel;
+                    // the navigator panel stays hidden in chat views, so this
+                    // gives quick access to your sessions without Cmd+..
+                    {
+                      id: "nav:recentSessions",
+                      title: t("sidebar.recent", "Recent"),
+                      icon: Clock,
+                      variant: "ghost" as const,
+                      expandable: true,
+                      expanded: isExpanded('nav:recentSessions'),
+                      onToggle: () => toggleExpanded('nav:recentSessions'),
+                      onClick: () => toggleExpanded('nav:recentSessions'),
+                      items: (() => {
+                        const recent = [...activeSessionMetas]
+                          .sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0))
+                          .slice(0, 10)
+                        if (recent.length === 0) {
+                          return [{
+                            id: 'nav:recentSessions:empty',
+                            title: t("sidebar.noRecentSessions", "No recent sessions"),
+                            icon: Clock,
+                            variant: 'ghost' as const,
+                            compact: true,
+                            onClick: () => { /* noop */ },
+                          }]
+                        }
+                        return recent.map(meta => ({
+                          id: `nav:recentSessions:${meta.id}`,
+                          title: meta.name || meta.id.slice(0, 8),
+                          icon: Clock,
+                          iconColorable: true,
+                          variant: (sessionsContext?.sessionId === meta.id ? 'default' : 'ghost') as 'default' | 'ghost',
+                          compact: true,
+                          onClick: () => navigateToSessionInPanel(meta.id),
+                        }))
+                      })(),
+                    },
                     // --- Separator ---
                     { id: "separator:chats-sources", type: "separator" },
                     // --- Sources & Skills Section ---
@@ -3224,7 +3269,7 @@ function AppShellContent({
             )}
             </div>
           }
-          navigatorWidth={isAutoCompact ? sessionListWidth : (effectiveSidebarAndNavigatorHidden ? 0 : sessionListWidth)}
+          navigatorWidth={isAutoCompact ? sessionListWidth : (effectiveSidebarAndNavigatorHidden || hideNavigatorForSessions ? 0 : sessionListWidth)}
           isSidebarAndNavigatorHidden={effectiveSidebarAndNavigatorHidden}
           isRightSidebarVisible={false}
           isCompact={isAutoCompact}
@@ -3265,7 +3310,7 @@ function AppShellContent({
         )}
 
         {/* Session List Resize Handle (absolute, hidden in focused mode) */}
-        {!effectiveSidebarAndNavigatorHidden && (
+        {!effectiveSidebarAndNavigatorHidden && !hideNavigatorForSessions && (
         <div
           ref={sessionListHandleRef}
           onMouseDown={(e) => { e.preventDefault(); setIsResizing('session-list') }}
