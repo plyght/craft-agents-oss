@@ -712,7 +712,7 @@ export function evictStaleConversations(now = Date.now()): void {
  * Insert reasoning effort into model ID, before -fast/-thinking suffix.
  * e.g. model="gpt-5.4" + effort="medium" → "gpt-5.4-medium"
  *      model="gpt-5.4-fast" + effort="high" → "gpt-5.4-high-fast"
- * If no effort provided, returns model as-is.
+ * Pure string transform — no validation against the live catalog.
  */
 export function resolveModelId(model: string, reasoningEffort?: string): string {
   if (!reasoningEffort) return model;
@@ -730,6 +730,58 @@ export function resolveModelId(model: string, reasoningEffort?: string): string 
   return `${base}-${reasoningEffort}${suffix}`;
 }
 
+/**
+ * Pick a Cursor catalog model ID for an incoming request.
+ *
+ * Why this is more involved than just calling resolveModelId:
+ *
+ * The dedup helper in models.ts collapses Cursor's effort-suffixed
+ * variants (claude-4.6-opus-low / -medium / -high) into a single logical
+ * ID (claude-4.6-opus) and expects callers to send reasoning_effort so
+ * the suffix can be re-inserted at request time. Pi's coding agent does
+ * this via its thinking-level → reasoning_effort plumbing.
+ *
+ * Craft's pi_compat path doesn't currently surface thinking-level as
+ * reasoning_effort on openai-completions requests. So a bare collapsed
+ * ID like "claude-4.6-opus-thinking" arrives at the proxy, gets passed
+ * to Cursor as-is, and the upstream returns Connect not_found because
+ * that exact string isn't in their catalog (their actual entries are
+ * claude-4.6-opus-{low,medium,high}-thinking).
+ *
+ * The fix: when no effort is provided AND the bare ID isn't in the live
+ * catalog (cached from GetUsableModels), try inserting "medium" then
+ * "high" then "low" and use the first one that matches. Falls back to
+ * the original ID if nothing matches so the user gets the same upstream
+ * error rather than a silent rewrite to something they didn't ask for.
+ */
+const EFFORT_FALLBACK_ORDER = ["medium", "high", "low"] as const;
+
+export function selectCursorModelId(
+  requestedModel: string,
+  reasoningEffort: string | undefined,
+  catalog: Pick<CursorModel, "id">[] | null,
+): string {
+  // Caller provided an effort — do the simple string substitution.
+  if (reasoningEffort) {
+    return resolveModelId(requestedModel, reasoningEffort);
+  }
+
+  // No catalog (model discovery failed or hasn't run yet) — pass through.
+  if (!catalog || catalog.length === 0) return requestedModel;
+
+  const ids = new Set(catalog.map((m) => m.id));
+  if (ids.has(requestedModel)) return requestedModel;
+
+  // Try each fallback effort in order and return the first match.
+  for (const effort of EFFORT_FALLBACK_ORDER) {
+    const candidate = resolveModelId(requestedModel, effort);
+    if (ids.has(candidate)) return candidate;
+  }
+
+  // No match anywhere — let upstream return its own error so it's visible.
+  return requestedModel;
+}
+
 async function handleChatCompletion(
   body: ChatCompletionRequest,
   accessToken: string,
@@ -738,7 +790,7 @@ async function handleChatCompletion(
   requestId: string,
 ): Promise<void> {
   const { systemPrompt, userText, turns, toolResults } = parseMessages(body.messages);
-  const modelId = resolveModelId(body.model, body.reasoning_effort);
+  const modelId = selectCursorModelId(body.model, body.reasoning_effort, cachedModels);
   const tools = body.tools ?? [];
 
   debugLog("chat.parsed_messages", {
