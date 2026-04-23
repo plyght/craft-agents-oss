@@ -315,12 +315,21 @@ export async function listCursorModels(): Promise<ModelDefinition[]> {
     description: `${m.name} via Cursor`,
     provider: 'pi',
     contextWindow: m.contextWindow,
-    supportsThinking: m.supportsReasoning,
-    // Pass the Pi→Cursor effort map through so the Pi SDK can translate
-    // the session thinking level (minimal/low/medium/high/xhigh) to the
-    // suffix Cursor's upstream expects. Without this, every reasoning-
-    // capable model defaults to "medium" via selectCursorModelId's
-    // fallback — which works but ignores the user's explicit choice.
+    // Only advertise thinking support when the model was dedup-collapsed
+    // from multiple effort variants (m.supportsReasoningEffort tracks that
+    // exact condition in cursor-provider/models.ts — it mirrors the
+    // internal supportsEffort flag the dedup sets when ≥2 effort levels
+    // were collapsed into one logical ID). Using m.supportsReasoning here
+    // was too loose: it's true for any model in a reasoning-family prefix
+    // (claude/gpt/gemini/grok/kimi) regardless of whether Cursor actually
+    // exposes effort-suffixed variants. Single-variant entries like
+    // gemini-3-flash and composer-2 are valid bare IDs in Cursor's
+    // catalog; advertising thinking support on them made Pi send
+    // reasoning_effort, which made the proxy rewrite to a non-existent
+    // "gemini-3-flash-high" / "composer-2-medium", and Cursor returned
+    // "not_found". Keeping supportsThinking aligned with "has an actual
+    // reasoningEffortMap" keeps the request shape honest per model.
+    supportsThinking: m.supportsReasoningEffort,
     ...(m.reasoningEffortMap
       ? { reasoningEffortMap: m.reasoningEffortMap }
       : {}),
