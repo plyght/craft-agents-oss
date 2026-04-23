@@ -345,10 +345,75 @@ interface SpawnBridgeOptions {
   unary?: boolean;
 }
 
+/**
+ * Resolve the Node interpreter used to launch h2-bridge.mjs.
+ *
+ * Precedence:
+ *   1. CRAFT_CURSOR_NODE_PATH — explicit override set by the Electron
+ *      main process. Points at process.execPath (the packaged
+ *      Electron binary), which we run with ELECTRON_RUN_AS_NODE=1 to
+ *      invoke its embedded Node VM. This avoids the $PATH lookup that
+ *      fails silently when the .app is launched from Finder with a
+ *      minimal environment.
+ *   2. The plain string "node" — works for dev/`bun run`, and for
+ *      non-Electron hosts (tests, headless server).
+ */
+function resolveBridgeNodePath(): string {
+  return process.env.CRAFT_CURSOR_NODE_PATH?.trim() || "node";
+}
+
 function spawnBridge(options: SpawnBridgeOptions): BridgeHandle {
-  debugLog("bridge.spawn", { rpcPath: options.rpcPath, url: options.url ?? CURSOR_API_URL, unary: options.unary ?? false });
-  const proc = spawn("node", [BRIDGE_PATH], {
-    stdio: ["pipe", "pipe", "ignore"],
+  const nodePath = resolveBridgeNodePath();
+  const useElectronAsNode = !!process.env.CRAFT_CURSOR_NODE_PATH?.trim();
+
+  debugLog("bridge.spawn", {
+    rpcPath: options.rpcPath,
+    url: options.url ?? CURSOR_API_URL,
+    unary: options.unary ?? false,
+    nodePath,
+    bridgePath: BRIDGE_PATH,
+    useElectronAsNode,
+  });
+
+  // Pipe stderr through (instead of "ignore") so missing-binary errors,
+  // crashes, and unhandled rejections in the bridge aren't silently
+  // discarded — the proxy previously manifested as "message sent, no
+  // response, no error" when node wasn't on $PATH, which is miserable
+  // to debug without the subprocess's own diagnostics.
+  const proc = spawn(nodePath, [BRIDGE_PATH], {
+    stdio: ["pipe", "pipe", "pipe"],
+    env: useElectronAsNode
+      ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+      : process.env,
+  });
+
+  // Surface bridge spawn failures (ENOENT, EACCES, …) to the proxy log.
+  // Without this, `spawn` errors just appear as an immediate exit(1) with
+  // no other signal — and the stream hangs because nothing ever arrives
+  // on stdout.
+  proc.on("error", (err) => {
+    debugLog("bridge.spawn_error", {
+      rpcPath: options.rpcPath,
+      nodePath,
+      bridgePath: BRIDGE_PATH,
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as NodeJS.ErrnoException).code,
+    });
+    console.error(
+      `[cursor-provider] Failed to spawn h2-bridge (${nodePath} ${BRIDGE_PATH}): ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  });
+
+  // Capture bridge stderr — h2-bridge.mjs writes `console.error` for HTTP/2
+  // stream failures, unhandled rejections, etc. Without this branch they
+  // would vanish entirely.
+  proc.stderr?.on("data", (chunk: Buffer) => {
+    const text = chunk.toString("utf8").trim();
+    if (!text) return;
+    debugLog("bridge.stderr", { rpcPath: options.rpcPath, text });
+    console.error(`[cursor-provider] h2-bridge stderr: ${text}`);
   });
 
   const config = JSON.stringify({
@@ -357,7 +422,15 @@ function spawnBridge(options: SpawnBridgeOptions): BridgeHandle {
     path: options.rpcPath,
     unary: options.unary ?? false,
   });
-  proc.stdin!.write(lpEncode(new TextEncoder().encode(config)));
+  // Guard against the write happening after the process failed to spawn.
+  try {
+    proc.stdin?.write(lpEncode(new TextEncoder().encode(config)));
+  } catch (err) {
+    debugLog("bridge.config_write_error", {
+      rpcPath: options.rpcPath,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   const cbs = {
     data: null as ((chunk: Buffer) => void) | null,
@@ -368,7 +441,7 @@ function spawnBridge(options: SpawnBridgeOptions): BridgeHandle {
   let exitCode = 1;
 
   let pending = Buffer.alloc(0);
-  proc.stdout!.on("data", (chunk: Buffer) => {
+  proc.stdout?.on("data", (chunk: Buffer) => {
     pending = Buffer.concat([pending, chunk]);
     while (pending.length >= 4) {
       const len = pending.readUInt32BE(0);

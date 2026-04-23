@@ -384,6 +384,14 @@ app.whenReady().then(async () => {
   // proxy spawn, since the env var is read at module load.
   process.env.CRAFT_CURSOR_BRIDGE_PATH = join(__dirname, 'resources', 'h2-bridge.mjs')
 
+  // The h2-bridge script needs a Node interpreter. A .app launched from
+  // Finder inherits an almost empty $PATH (/usr/bin:/bin:/usr/sbin:/sbin)
+  // so `spawn("node", …)` throws ENOENT and the stream hangs with no
+  // response. Tell the proxy to spawn Electron itself as Node — we set
+  // ELECTRON_RUN_AS_NODE=1 at spawn time so the binary behaves like a
+  // plain `node` interpreter for the duration of that subprocess.
+  process.env.CRAFT_CURSOR_NODE_PATH = process.execPath
+
   // Restore the Cursor connection (if the user was already logged in).
   // Runs in the background so it never blocks the main window from opening.
   {
