@@ -92,12 +92,20 @@ import {
 
 const CURSOR_API_URL = "https://api2.cursor.sh";
 const CONNECT_END_STREAM_FLAG = 0b00000010;
-// Bridge path resolution order:
-//   1. CRAFT_CURSOR_BRIDGE_PATH env var (set by the Electron main process
-//      so the packaged app can point at resources/h2-bridge.mjs).
+// Bridge path resolution order, re-evaluated on every spawn:
+//   1. CRAFT_CURSOR_BRIDGE_PATH env var — set by the Electron main process
+//      inside app.whenReady() so the packaged app points at
+//      resources/h2-bridge.mjs. Must be read lazily because esbuild inlines
+//      this module into the main-process cjs bundle; evaluating the fallback
+//      at module load time runs before app.whenReady() fires, and would
+//      cache a stale "dist/h2-bridge.mjs" that doesn't exist in the .app.
 //   2. h2-bridge.mjs alongside this module (dev / direct bun run).
-const BRIDGE_PATH = process.env.CRAFT_CURSOR_BRIDGE_PATH?.trim()
-  || pathResolve(moduleDir(), "h2-bridge.mjs");
+function resolveBridgePath(): string {
+  return (
+    process.env.CRAFT_CURSOR_BRIDGE_PATH?.trim() ||
+    pathResolve(moduleDir(), "h2-bridge.mjs")
+  );
+}
 
 // ── Types ──
 
@@ -365,13 +373,14 @@ function resolveBridgeNodePath(): string {
 function spawnBridge(options: SpawnBridgeOptions): BridgeHandle {
   const nodePath = resolveBridgeNodePath();
   const useElectronAsNode = !!process.env.CRAFT_CURSOR_NODE_PATH?.trim();
+  const bridgePath = resolveBridgePath();
 
   debugLog("bridge.spawn", {
     rpcPath: options.rpcPath,
     url: options.url ?? CURSOR_API_URL,
     unary: options.unary ?? false,
     nodePath,
-    bridgePath: BRIDGE_PATH,
+    bridgePath,
     useElectronAsNode,
   });
 
@@ -380,7 +389,7 @@ function spawnBridge(options: SpawnBridgeOptions): BridgeHandle {
   // discarded — the proxy previously manifested as "message sent, no
   // response, no error" when node wasn't on $PATH, which is miserable
   // to debug without the subprocess's own diagnostics.
-  const proc = spawn(nodePath, [BRIDGE_PATH], {
+  const proc = spawn(nodePath, [bridgePath], {
     stdio: ["pipe", "pipe", "pipe"],
     env: useElectronAsNode
       ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
@@ -395,12 +404,12 @@ function spawnBridge(options: SpawnBridgeOptions): BridgeHandle {
     debugLog("bridge.spawn_error", {
       rpcPath: options.rpcPath,
       nodePath,
-      bridgePath: BRIDGE_PATH,
+      bridgePath,
       message: err instanceof Error ? err.message : String(err),
       code: (err as NodeJS.ErrnoException).code,
     });
     console.error(
-      `[cursor-provider] Failed to spawn h2-bridge (${nodePath} ${BRIDGE_PATH}): ${
+      `[cursor-provider] Failed to spawn h2-bridge (${nodePath} ${bridgePath}): ${
         err instanceof Error ? err.message : String(err)
       }`,
     );
