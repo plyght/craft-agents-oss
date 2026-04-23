@@ -77,8 +77,12 @@ import {
 
 const CURSOR_API_URL = "https://api2.cursor.sh";
 const CONNECT_END_STREAM_FLAG = 0b00000010;
-// Use import.meta.url for bridge path resolution (jiti supports this)
-const BRIDGE_PATH = pathResolve(dirname(fileURLToPath(import.meta.url)), "h2-bridge.mjs");
+// Bridge path resolution order:
+//   1. CRAFT_CURSOR_BRIDGE_PATH env var (set by the Electron main process
+//      so the packaged app can point at resources/h2-bridge.mjs).
+//   2. h2-bridge.mjs alongside this module (dev / direct bun run).
+const BRIDGE_PATH = process.env.CRAFT_CURSOR_BRIDGE_PATH?.trim()
+  || pathResolve(dirname(fileURLToPath(import.meta.url)), "h2-bridge.mjs");
 
 // ── Types ──
 

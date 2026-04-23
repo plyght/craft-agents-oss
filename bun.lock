@@ -133,6 +133,7 @@
       "version": "0.8.11",
       "dependencies": {
         "@craft-agent/core": "workspace:*",
+        "@craft-agent/cursor-provider": "workspace:*",
         "@craft-agent/messaging-gateway": "workspace:*",
         "@craft-agent/server-core": "workspace:*",
         "@craft-agent/shared": "workspace:*",
