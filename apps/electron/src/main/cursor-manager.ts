@@ -316,6 +316,14 @@ export async function listCursorModels(): Promise<ModelDefinition[]> {
     provider: 'pi',
     contextWindow: m.contextWindow,
     supportsThinking: m.supportsReasoning,
+    // Pass the Pi→Cursor effort map through so the Pi SDK can translate
+    // the session thinking level (minimal/low/medium/high/xhigh) to the
+    // suffix Cursor's upstream expects. Without this, every reasoning-
+    // capable model defaults to "medium" via selectCursorModelId's
+    // fallback — which works but ignores the user's explicit choice.
+    ...(m.reasoningEffortMap
+      ? { reasoningEffortMap: m.reasoningEffortMap }
+      : {}),
   }))
 }
 
