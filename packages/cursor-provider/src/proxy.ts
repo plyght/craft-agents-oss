@@ -592,6 +592,31 @@ function decodeConnectUnaryBody(payload: Uint8Array): Uint8Array | null {
   return null;
 }
 
+/**
+ * Guess the context window for a Cursor model ID.
+ *
+ * Cursor's GetUsableModels RPC doesn't include per-model token limits, so
+ * we have to infer from the ID. Cursor publishes specific "-1m" variants
+ * (claude-4-sonnet-1m, claude-4-sonnet-1m-thinking, …) that bill at a
+ * higher rate precisely because they accept 1M tokens of input. Treating
+ * them as 200K like everything else would trigger pi-agent-server's
+ * auto-compaction way before the model's actual limit and silently lose
+ * the user's money-paying-for-1M value.
+ *
+ * Everything else keeps the 200K default. When Cursor's proto eventually
+ * surfaces a context-window field we can drop this heuristic.
+ */
+function contextWindowFor(id: string): number {
+  // Match both bare "-1m" and "-1m-thinking" variants. The suffix pattern
+  // is tight — just the exact segment "-1m" immediately before either the
+  // end or a known trailing segment — so we don't accidentally match model
+  // IDs that happen to contain "1m" in a different position.
+  if (/-1m(-thinking|-fast|-high|-medium|-low|-xhigh|-max|-none)?$/.test(id)) {
+    return 1_048_576;
+  }
+  return 200_000;
+}
+
 function normalizeCursorModels(models: readonly unknown[]): CursorModel[] {
   const byId = new Map<string, CursorModel>();
   for (const model of models) {
@@ -603,7 +628,7 @@ function normalizeCursorModels(models: readonly unknown[]): CursorModel[] {
       id,
       name,
       reasoning: Boolean(m.thinkingDetails),
-      contextWindow: 200_000,
+      contextWindow: contextWindowFor(id),
       maxTokens: 64_000,
     });
   }
