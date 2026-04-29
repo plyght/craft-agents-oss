@@ -50,7 +50,11 @@ const providerDisplayNames: Record<string, string> = {
   openai: 'OpenAI',
   openai_compat: 'OpenAI',
   copilot: 'GitHub Copilot',
+<<<<<<< HEAD
   cursor: 'Cursor',
+=======
+  deepseek: 'DeepSeek',
+>>>>>>> upstream/main
   kimi: 'Kimi',
   minimax: 'Minimax',
   ollama: 'Ollama',
@@ -142,6 +146,7 @@ const PI_AUTH_PROVIDER_DOMAINS: Record<string, string> = {
   groq: 'groq.com',
   xai: 'x.ai',
   cerebras: 'cerebras.ai',
+  deepseek: 'deepseek.com',
   zai: 'z.ai',
   cursor: 'cursor.com',
 }
